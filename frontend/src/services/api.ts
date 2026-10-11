@@ -34,7 +34,23 @@ async function handleResponse<T>(response: Response): Promise<T> {
     let errorDetail = 'Network request failed';
     try {
       const errJson = await response.json();
-      errorDetail = errJson.detail || errJson.message || JSON.stringify(errJson);
+      if (typeof errJson.detail === 'string') {
+        errorDetail = errJson.detail;
+      } else if (Array.isArray(errJson.detail)) {
+        errorDetail = errJson.detail.map((err: any) => {
+          if (err.msg && err.loc) {
+            const field = err.loc[err.loc.length - 1];
+            return `${field}: ${err.msg}`;
+          }
+          return err.msg || JSON.stringify(err);
+        }).join(', ');
+      } else if (errJson.detail) {
+        errorDetail = JSON.stringify(errJson.detail);
+      } else if (errJson.message) {
+        errorDetail = errJson.message;
+      } else {
+        errorDetail = JSON.stringify(errJson);
+      }
     } catch {
       errorDetail = `Server error (${response.status}: ${response.statusText})`;
     }
