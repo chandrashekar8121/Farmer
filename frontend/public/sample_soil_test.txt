@@ -1,0 +1,20 @@
+GOVERNMENT OF ANDHRA PRADESH - DEPARTMENT OF AGRICULTURE
+SOIL HEALTH CARD DIAGNOSTIC REPORT
+District Soil Testing Laboratory, Guntur
+Farmer Name: Venkata Rao
+Survey No: 42/B
+Sample Date: 2026-10-05
+
+TEST PARAMETERS & RESULTS:
+------------------------------------------
+Soil Reaction (pH): 6.8 (Neutral)
+Electrical Conductivity (EC): 0.38 dS/m (Normal)
+Organic Carbon (OC): 0.62 % (Medium)
+Available Nitrogen (N): 112.5 mg/kg (Low)
+Available Phosphorus (P): 18.2 mg/kg (Medium)
+Available Potassium (K): 155.0 mg/kg (Medium)
+
+RECOMMENDATIONS:
+Incorporate green manure or FYM. Apply phosphatic and potassic fertilizers as per crop schedule.
+------------------------------------------
+Testing Officer: Dr. K. Radhakrishna, Senior Agronomist

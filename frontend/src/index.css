@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-amber-50/30 text-gray-900 font-sans text-farmer-base antialiased selection:bg-emerald-200;
+    font-size: 18px;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold text-gray-900 tracking-tight;
+  }
+}
+
+/* High contrast touch buttons for elderly farmers */
+.farmer-touch-target {
+  min-height: 54px;
+  min-width: 54px;
+}
+
+/* Accessible focus ring */
+*:focus-visible {
+  outline: 3px solid #16a34a !important;
+  outline-offset: 2px !important;
+}
+
+/* Smooth card transitions */
+.farmer-card {
+  @apply bg-white rounded-2xl border-2 border-emerald-900/10 shadow-sm transition-all;
+}
+
+.farmer-card:hover {
+  @apply shadow-md border-emerald-600/30;
+}

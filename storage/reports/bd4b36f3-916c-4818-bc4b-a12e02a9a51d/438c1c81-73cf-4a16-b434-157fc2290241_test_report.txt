@@ -1,0 +1,5 @@
+Soil Test Lab
+Soil pH: 7.2
+Available Nitrogen: 130 mg/kg
+Phosphorus: 20 mg/kg
+Potassium: 190 mg/kg
