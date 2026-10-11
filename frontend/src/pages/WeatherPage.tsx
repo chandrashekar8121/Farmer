@@ -7,7 +7,10 @@ import {
   MapPin,
   Calendar,
   ShieldCheck,
-  RotateCcw
+  RotateCcw,
+  Search,
+  Compass,
+  Loader2
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -32,6 +35,54 @@ export const WeatherPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Free global location search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Array<{ name: string; lat: number; lon: number; label: string }>>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  // Search any location via Open-Meteo Geocoding
+  const handleSearchLocation = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setIsSearching(true);
+    setSearchError(null);
+    try {
+      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(searchQuery.trim())}&count=6&language=en&format=json`);
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+        const mapped = data.results.map((r: any) => {
+          const parts = [r.name, r.admin1, r.country].filter(Boolean);
+          return {
+            name: parts.join(', '),
+            label: `${r.name}${r.admin1 ? ', ' + r.admin1 : ''}${r.country ? ' (' + r.country + ')' : ''}`,
+            lat: r.latitude,
+            lon: r.longitude
+          };
+        });
+        setSearchResults(mapped);
+      } else {
+        setSearchResults([]);
+        setSearchError('No matching locations found. Try checking the spelling.');
+      }
+    } catch (err: any) {
+      setSearchError('Could not reach location service. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const selectSearchResult = (item: { name: string; lat: number; lon: number }) => {
+    const newLoc = { name: item.name, lat: item.lat, lon: item.lon };
+    setSelectedLoc(newLoc);
+    setSearchResults([]);
+    setSearchQuery('');
+    setSearchError(null);
+    localStorage.setItem('krishi_location', JSON.stringify(newLoc));
+    fetchWeather(newLoc);
+  };
+
   // Helper to request browser geolocation permission once
   const requestBrowserLocation = (): Promise<{ lat: number; lon: number; name: string }> =>
     new Promise((resolve, reject) => {
@@ -41,12 +92,10 @@ export const WeatherPage: React.FC = () => {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
-          // Simple reverse lookup: match nearest preset district
-          const nearest = DISTRICT_LOCATIONS.reduce((prev, cur) => {
-            const dist = Math.hypot(cur.lat - latitude, cur.lon - longitude);
-            return dist < prev.dist ? { loc: cur, dist } : prev;
-          }, { loc: DISTRICT_LOCATIONS[0], dist: Infinity });
-          resolve({ lat: latitude, lon: longitude, name: nearest.loc.name });
+          // Reverse geocode via Open-Meteo for accurate name
+          fetch(`https://geocoding-api.open-meteo.com/v1/search?name=&latitude=${latitude}&longitude=${longitude}`)
+            .catch(() => null);
+          resolve({ lat: latitude, lon: longitude, name: 'My Current Location (నా ప్రస్తుత స్థానం)' });
         },
         (err) => reject(new Error(err.message || 'Location permission denied'))
       );
@@ -138,26 +187,102 @@ export const WeatherPage: React.FC = () => {
         )}
       </div>
 
-      {/* District / Location Selector */}
-      <div className="farmer-card p-4 bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-gray-800 font-bold text-lg">
-          <MapPin className="w-6 h-6 text-emerald-700 flex-shrink-0" />
-          <span>Select District / జిల్లా ఎంచుకోండి:</span>
+      {/* Universal Location Search + GPS */}
+      <div className="farmer-card p-6 bg-white space-y-4">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-gray-800 font-bold text-lg">
+            <MapPin className="w-6 h-6 text-emerald-700 flex-shrink-0" />
+            <span>Search Any Location / ప్రాంతం వెతకండి:</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleUseCurrentLocation}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-800 border-2 border-emerald-600 rounded-xl font-bold text-base hover:bg-emerald-100 transition-colors"
+          >
+            <Compass className="w-5 h-5 text-emerald-700" />
+            <span>📍 Use My GPS Location (నా స్థానం)</span>
+          </button>
         </div>
-        <select
-          value={selectedLoc.name}
-          onChange={(e) => {
-            const found = DISTRICT_LOCATIONS.find((d) => d.name === e.target.value);
-            if (found) setSelectedLoc(found);
-          }}
-          className="w-full sm:w-auto px-4 py-3 rounded-xl border-2 border-emerald-600 text-base font-bold bg-white text-emerald-950 focus:ring-0"
-        >
+
+        {/* Search input with submit button */}
+        <form onSubmit={handleSearchLocation} className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Type any city, town, village or district (e.g. Khammam, Tirupati, Delhi)..."
+              className="w-full px-4 py-3.5 pl-11 rounded-xl border-2 border-gray-300 focus:border-emerald-600 focus:ring-0 text-base font-medium text-gray-900"
+            />
+            <Search className="w-5 h-5 text-gray-400 absolute left-3.5 top-4" />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSearching || !searchQuery.trim()}
+            className="px-6 py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-base transition-colors flex items-center gap-2 disabled:opacity-50"
+          >
+            {isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+            <span>Search</span>
+          </button>
+        </form>
+
+        {/* Search error feedback */}
+        {searchError && (
+          <p className="text-red-700 text-sm font-semibold bg-red-50 p-2.5 rounded-lg border border-red-200">
+            ⚠️ {searchError}
+          </p>
+        )}
+
+        {/* Live Search Suggestions Dropdown */}
+        {searchResults.length > 0 && (
+          <div className="border-2 border-emerald-300 rounded-xl overflow-hidden bg-white shadow-lg divide-y divide-gray-100">
+            <div className="bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-900 uppercase tracking-wider">
+              Matching Locations (Select one / ఎంచుకోండి):
+            </div>
+            {searchResults.map((item, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => selectSearchResult(item)}
+                className="w-full text-left px-4 py-3 hover:bg-emerald-50 transition-colors flex items-center justify-between text-base font-semibold text-gray-800"
+              >
+                <div className="flex items-center gap-2.5">
+                  <MapPin className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <span>{item.label}</span>
+                </div>
+                <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md font-bold">
+                  View Weather →
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Quick-Pick Popular Districts */}
+        <div className="pt-2 border-t border-gray-100 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider mr-1">
+            Quick Districts:
+          </span>
           {DISTRICT_LOCATIONS.map((d) => (
-            <option key={d.name} value={d.name}>
-              {d.name}
-            </option>
+            <button
+              key={d.name}
+              type="button"
+              onClick={() => {
+                setSelectedLoc(d);
+                localStorage.setItem('krishi_location', JSON.stringify(d));
+                fetchWeather(d);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors
+                ${selectedLoc.name === d.name
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            >
+              {d.name.split(',')[0]}
+            </button>
           ))}
-        </select>
+        </div>
       </div>
 
       {errorMsg && (
