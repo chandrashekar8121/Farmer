@@ -9,7 +9,8 @@ from app.api.v1.endpoints import (
     schedules,
     weather,
     history,
-    family
+    family,
+    tts
 )
 
 api_router = APIRouter()
@@ -24,3 +25,4 @@ api_router.include_router(schedules.router, tags=["Fertilizer Schedules"])
 api_router.include_router(weather.router, tags=["Weather"])
 api_router.include_router(history.router, tags=["History"])
 api_router.include_router(family.router, tags=["Family Access"])
+api_router.include_router(tts.router, tags=["TTS and Translation"])

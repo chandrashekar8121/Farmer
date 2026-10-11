@@ -95,31 +95,78 @@ export const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
     }
   };
 
-  // Handle Text-To-Speech (Speaker)
-  const toggleSpeaking = () => {
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  // Fallback to SpeechSynthesis
+  const speakWithSpeechSynthesis = (text: string, langCode: string) => {
     if (!('speechSynthesis' in window)) {
       setErrorMessage('Audio synthesis is not supported on this device.');
-      return;
-    }
-
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
       setIsSpeaking(false);
       return;
     }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langCode;
+    utterance.rate = 0.9;
 
-    if (!textToSpeak) return;
-
-    window.speechSynthesis.cancel(); // Clear any ongoing speech
-    const utterance = new SpeechSynthesisUtterance(textToSpeak);
-    utterance.lang = getLangCode();
-    utterance.rate = 0.9; // Slightly slower for elder farmers
+    const voices = window.speechSynthesis.getVoices();
+    const prefix = langCode.split('-')[0].toLowerCase();
+    const matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith(prefix));
+    if (matchedVoice) {
+      utterance.voice = matchedVoice;
+    }
 
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
 
     window.speechSynthesis.speak(utterance);
+  };
+
+  // Handle Text-To-Speech (Speaker) with authentic regional voice playback
+  const toggleSpeaking = async () => {
+    // If already speaking, stop
+    if (isSpeaking) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      setIsSpeaking(false);
+      return;
+    }
+
+    if (!textToSpeak) return;
+
+    setErrorMessage(null);
+    setIsSpeaking(true);
+
+    const langCode = getLangCode();
+    const tl = langCode.split('-')[0]; // 'te', 'hi', or 'en'
+
+    // Play native TTS audio (guarantees authentic Telugu / Hindi voices on all systems)
+    try {
+      const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}&q=${encodeURIComponent(textToSpeak.slice(0, 200))}`;
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        setIsSpeaking(false);
+        audioRef.current = null;
+      };
+
+      audio.onerror = () => {
+        // Fallback to SpeechSynthesis if audio stream fails
+        speakWithSpeechSynthesis(textToSpeak, langCode);
+      };
+
+      await audio.play();
+    } catch (err) {
+      console.warn("Direct audio failed, falling back to speech synthesis:", err);
+      speakWithSpeechSynthesis(textToSpeak, langCode);
+    }
   };
 
   if (!speechSupported) {
